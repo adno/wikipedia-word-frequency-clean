@@ -45,6 +45,12 @@ def get_re_word(allow_start_end: str = '') -> re.Pattern:
         )
 
 
+def get_re_word_relaxed() -> re.Pattern:
+    return re.compile(
+        rf'^([^\d]*(?!\d)[\w][^\d]*)$'
+        )
+
+
 def get_re_split(no_split: str = '') -> re.Pattern:
     '''
     Match non-word sequences to split words. Such sequences may consist of:
@@ -94,6 +100,22 @@ def fugashi_tagger(dicdir: Optional[str]) -> fugashi.GenericTagger:
     # GenericTagger: we do not supply wrapper (not needed wor -O wakati)
     mecabrc = os.path.join(dicdir, 'mecabrc')
     return fugashi.GenericTagger(f'-O wakati -d {dicdir} -r {mecabrc}')
+
+
+def add_tagger_arg_group(
+    parser: argparse.ArgumentParser,
+    title: Optional[str] = None
+    ):
+    titled_group = parser.add_argument_group(title=title)
+    dic_group = titled_group.add_mutually_exclusive_group()
+    dic_group.add_argument(
+        '--dicdir', type=str, default=None,
+        help='Dictionary directory for fugashi/MeCab.'
+        )
+    dic_group.add_argument(
+        '--dictionary', '-D', choices=('unidic', 'unidic-lite'), default=None,
+        help='Dictionary (installed as a Python package) for fugashi/MeCab.'
+        )
 
 
 def tagger_from_args(args: argparse.Namespace) -> fugashi.GenericTagger:

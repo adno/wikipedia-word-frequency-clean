@@ -1,21 +1,29 @@
-# Usage: zsh run.sh [DATE [LANG1 [...]]]
-# Default date: 20221020 
-# Default language list: de en es fr it ru zh pt ja cs
+# Usage: zsh run.sh [DATE [LANGUAGES]]
+#
+# Automate download and word frequency list generation.
+#
+# See `wordfrequency.py --help` for options of the tool used in the script.
+#
+# Based on https://github.com/notani/wikipedia-word-frequency/blob/master/run.sh by Naoki Otani
 
-# The scripts does segmentation of Japanese using both IPADIC and UNIDIC.
-# If you want to process Japanese, install both and edit the following paths to
-# match your installation. Alternatively, supply a list of languages without Japanese.
+# We generate several variants for JA and EN:
 
-UNIDIC_DIR="~/.linuxbrew/lib/mecab/dic/unidic"
-IPADIC_DIR="~/.linuxbrew/lib/mecab/dic/ipadic"
+JA_OPTS="--ja/--ja -D unidic"
+JA_SUFFIXES="/-310"
+
+EN_OPTS="--auto/--en/--en -relaxed"
+EN_SUFFIXES="/-penn/-pennr"
 
 
-if [ "$#" -gt 0 ]
+DATE=$1
+if [ -z "$DATE" ]
 then
-	DATE=$1
+	DATE="20221020"
+fi
+
+if [ "$#" -ge 1 ]
+then
 	shift 1
-else
-	DATE=20221020
 fi
 
 LANGS="$@"
@@ -26,7 +34,7 @@ fi
 
 for lang in ${=LANGS}
 do
-    if [ -e results/${lang}wiki-${DATE}-word-doc-frequency.tsv ] || [ -e results/${lang}wiki-${DATE}-unidic-word-doc-frequency.tsv ]; then
+    if [ -e results/${lang}wiki-frequency-${DATE}.tsv ]; then
         continue
     fi
 
@@ -47,23 +55,23 @@ do
     if [ $lang = "zh" ]
     then
     	opts="--zh"
-    	suffixes="-jieba"
+    	suffixes=""
     elif [ $lang = "ja" ]
     then
-    	opts="--ja=$UNIDIC_DIR --ja=$IPADIC_DIR"
-    	suffixes="-unidic -ipadic"
+    	opts="$JA_OPTS"
+    	suffixes="$JA_SUFFIXES"
     else
-    	# Explicit --auto ensures we do an iteration.
-    	opts="--auto"
+    	# Explicit --default ensures we do an iteration.
+    	opts="--default"
     	suffixes=""
     fi
     
-    for opt in ${=opts}
+    for opt in "${(@s:/:)opts}"
     do
-    	suffix="${suffixes%% *}"
-    	suffixes="${suffixes#* }"
+    	suffix="${suffixes%%/*}"
+    	suffixes="${suffixes#*/}"
     	
-		cmd="python ./gather_wordfreq.py -Dt $opt dumps.wikimedia.org/${lang}wiki/${DATE}/*.bz2 > results/${lang}wiki-${DATE}${suffix}-word-doc-frequency.tsv"
+		cmd="python word_frequency.py -x $opt dumps.wikimedia.org/${lang}wiki/${DATE}/*.bz2 -o results/${lang}wiki-frequency-${DATE}%.tsv"
 		echo $cmd
 		eval $cmd
     done
