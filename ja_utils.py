@@ -22,7 +22,10 @@ def _assert_safe_for_re_range(s: str) -> None:
     assert ('-' not in s) or s.endswith('-')
 
 
-def get_re_word(allow_start_end: str = '') -> re.Pattern:
+def get_re_word(
+    allow_start_end: str = '',
+    allow_end: str = ''
+    ) -> re.Pattern:
     '''
     Match words of len>=1. No decimal digits (\\d) at any position.
     First and last character must be word-forming (\\w), i.e. alphabet, CJK, etc.
@@ -34,20 +37,26 @@ def get_re_word(allow_start_end: str = '') -> re.Pattern:
     apostrophe (English) or wave dash (Japanese) to appear as the first or last
     characters. (Note: does not work for adding digits.)
 
+    Use `allow_end` to allow characters to appear as last characters of a word longer
+    than a single character.
+
     Useful both for space-separated languages (segmented with regex) and languages
     requiring more complex segmentation (Chinese, Japanese).
     '''
 
     _assert_safe_for_re_range(allow_start_end)
+    _assert_safe_for_re_range(allow_end)
+    assert '-' not in allow_end
 
     return re.compile(
-        rf'^(?!\d)[\w{allow_start_end}]([^\d]*[\w{allow_start_end}])?(?<!\d)$'
+        rf'^(?!\d)[\w{allow_start_end}]'
+        rf'([^\d]*[\w{allow_end}{allow_start_end}])?(?<!\d)$'
         )
 
 
 def get_re_word_relaxed() -> re.Pattern:
     return re.compile(
-        rf'^([^\d]*(?!\d)[\w][^\d]*)$'
+        r'^([^\d]*(?!\d)[\w][^\d]*)$'
         )
 
 

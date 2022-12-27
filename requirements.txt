@@ -1,5 +1,7 @@
-wikiextractor=3.0.6
+wikiextractor==3.0.6
 tqdm==4.64.0
+nltk==3.8
 fugashi==1.1.2
 unidic==1.1.0
 unidic-lite==1.0.8
+jieba==0.42.1

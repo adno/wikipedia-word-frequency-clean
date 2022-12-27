@@ -11,7 +11,7 @@
 JA_OPTS="--ja/--ja -D unidic"
 JA_SUFFIXES="/-310"
 
-EN_OPTS="--auto/--en/--en -relaxed"
+EN_OPTS="--default/--en/--en --relaxed"
 EN_SUFFIXES="/-penn/-pennr"
 
 
@@ -34,7 +34,7 @@ fi
 
 for lang in ${=LANGS}
 do
-    if [ -e results/${lang}wiki-frequency-${DATE}.tsv ]; then
+    if [ -e results/${lang}wiki-frequency-${DATE}.tsv.xz ]; then
         continue
     fi
 
@@ -60,6 +60,10 @@ do
     then
     	opts="$JA_OPTS"
     	suffixes="$JA_SUFFIXES"
+    elif [ $lang = "en" ]
+    then
+    	opts="$EN_OPTS"
+    	suffixes="$EN_SUFFIXES"
     else
     	# Explicit --default ensures we do an iteration.
     	opts="--default"
@@ -71,7 +75,7 @@ do
     	suffix="${suffixes%%/*}"
     	suffixes="${suffixes#*/}"
     	
-		cmd="python word_frequency.py -x $opt dumps.wikimedia.org/${lang}wiki/${DATE}/*.bz2 -o results/${lang}wiki-frequency-${DATE}%.tsv"
+		cmd="python word_frequency.py -x $opt dumps.wikimedia.org/${lang}wiki/${DATE}/*.bz2 -o results/${lang}wiki-frequency-${DATE}${suffix}%.tsv.xz"
 		echo $cmd
 		eval $cmd
     done
