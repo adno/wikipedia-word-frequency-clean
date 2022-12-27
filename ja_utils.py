@@ -92,11 +92,6 @@ assert (
     ['a', 'b', 'cč', 'dď', 'eé', 'ff', 'koala']
     )
 
-# TODO Unused since we do full NFKC normalization.
-# NORMALIZE_FULLWIDTH_LCASE: dict[int, int] = dict(zip(
-#     range(ord('ａ'), ord('ｚ') + 1),  # fullwidth a-z
-#     range(ord('a'), ord('z') + 1)  # half-width a-z
-#     ))  # Used with str.translate() after lowercasing
 
 NORMALIZE_FULLWIDTH_TILDE: dict[int, int] = {
     0xFF5E: 0x301C  # fullwidth tilde '～' (common typo) => wave dash '〜'

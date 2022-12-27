@@ -79,42 +79,29 @@ class Storage(Enum):
 
 class WordCounter:
     '''
-    WordCounter is memory intensive because it keeps a set of documents for each word,
-    unless you compact it using get_word_docn() or methods that call get_word_docn().
-
     The lifecycle of a WordCounter object:
 
-    1. Add words by add().
+    1. For each document:
+      - add words with add() (possibly calling it several times)
+      - close document with close_doc()
 
-    2. Call methods that compact the object:
-      - explicitly compact with get_word_docn() (e.g. to pickle and send by IPC)
+    2. Merge/adjust and issue output:
       - merge()
       - remove_less_than_min_docs()
+      - remove_less_than_min_channels()
+      - warnings_for_markup()
       - dump()
 
-    Additionally, the following methods can be called whether the object is compacted
-    or not:
-
-    - remove_less_than_min_channels()
-    - warnings_for_markup()
-
-    After get_word_docn() is called, any add() calls will fail.
-
-    The compacting make the object smaller (more suitable for IPC), and also makes the
-    merges faster.
-
-    Note that we could save further memory by keeping sets of documents and depending on
-    the fact that documents are being added sequentially (all words from doc 1, then all
-    words from doc 2, etc.). This would make the code more complex and potentially
-    slower (because of Python, duh).
-
     >>> c = WordCounter()
-    >>> c.add('abcdefgh', 1)
-    >>> c.add('abcd', 2)
+    >>> c.add('abcdefgh')
+    >>> c.close_doc()
+    >>> c.add('abcd')
+    >>> c.close_doc()
     >>> sum(c.word_count.values())
     12
     >>> d = WordCounter()
-    >>> d.add('abcdabcdijklijkl', 1)
+    >>> d.add('abcdabcdijklijkl')
+    >>> d.close_doc()
     >>> sum(d.word_count.values())
     16
     >>> m = c.merge(d)
@@ -144,61 +131,49 @@ class WordCounter:
     >>> p = pickle.loads(pickle.dumps(m))
     >>> p == m
     True
-
     '''
-    __slots__ = ('word_count', 'word_docs', 'word_docn', 'word_channels')
+    __slots__ = ('word_count', 'word_docn', 'word_channels', 'doc_words')
     word_count: Counter[str]
-    word_docs: Optional[defaultdict[str, set[int]]]             # documents or videos
-    word_docn: Optional[defaultdict[str, int]]                  # merged docs/videos
+    word_docn: Counter[str]                                     # documents or videos
     word_channels: Optional[dict[str, set[Union[int, str]]]]    # for tubelex (YouTube)
+    doc_words: set[str]                                         # words in current doc
 
     def __init__(self, channels: bool = False):
         super().__init__()
         self.word_count     = Counter()
-        self.word_docs      = defaultdict(set)
-        self.word_docn      = None
+        self.word_docn      = Counter()
         self.word_channels  = defaultdict(set) if channels else None
+        self.doc_words      = set()
 
     def __eq__(self, other):
         return (
             self.word_count == other.word_count and
-            self.word_docs == other.word_docs and
             self.word_docn == other.word_docn and
-            self.word_channels == other.word_channels
+            self.word_channels == other.word_channels and
+            self.doc_words == self.doc_words
             )
 
     def add(
         self,
         words: Iterable[str],
-        doc_no: int,
         channel_id: Optional[Union[int, str]] = None
         ):
         assert (channel_id is None) == (self.word_channels is None), (
             channel_id, self.word_channels
             )
-        assert self.word_docs is not None, 'Trying to add to a compacted WordCounter'
         for w in words:
             self.word_count[w] += 1
-            self.word_docs[w].add(doc_no)
+            self.doc_words.add(w)
             if self.word_channels is not None:
-                self.word_channels[w].add(channel_id)   # type: ignore
+                self.word_channels[w].add(channel_id)  # type: ignore
 
-    def get_word_docn(self):
-        '''
-        Replace document sets (`word_docs`) by documents counts (`word_docn`),
-        effectively making any further `add()` calls impossible.
-
-        Saves memory by getting rid of large `set` objects.
-        '''
-        if self.word_docn is None:
-            self.word_docn = defaultdict(int, (
-                (word, len(docs)) for word, docs in self.word_docs.items()
-                ))
-            self.word_docs = None
-        return self.word_docn
+    def close_doc(self):
+        self.word_docn.update(self.doc_words)
+        self.doc_words = set()
 
     def remove_less_than_min_docs(self, min_docs: int):
-        for word, docn in self.get_word_docn().items():
+        assert not self.doc_words, 'Missing `close_doc()`?'
+        for word, docn in self.word_docn.items():
             if docn < min_docs:
                 del self.word_count[word]
 
@@ -223,12 +198,15 @@ class WordCounter:
                 )
 
     def merge(self, other: 'WordCounter') -> 'WordCounter':
+        assert not self.doc_words, 'Missing `self.close_doc()`?'
+        assert not other.doc_words, 'Missing `other.close_doc()`?'
+
         self.word_count.update(other.word_count)
 
         # Documents have unique ids, we just add the counts:
 
-        wdn = self.get_word_docn()
-        owd = other.get_word_docn()
+        wdn = self.word_docn
+        owd = other.word_docn
         for w, od in owd.items():
             wdn[w] += od
 
@@ -257,10 +235,12 @@ class WordCounter:
         sep: str = '\t'
         ):
         '''
-        >>> d = WordCounter()
-        >>> d.add('deabcdabcaba', 1)
-        >>> d.add('abc', 2)
-        >>> d.dump(sys.stdout, ('word', 'count', 'documents'), (100, 200), sep=' ')
+        >>> c = WordCounter()
+        >>> c.add('deabcdabcaba')
+        >>> c.close_doc()
+        >>> c.add('abc')
+        >>> c.close_doc()
+        >>> c.dump(sys.stdout, ('word', 'count', 'documents'), (100, 200), sep=' ')
         word count documents
         a 5 2
         b 4 2
@@ -269,8 +249,10 @@ class WordCounter:
         e 1 1
         [TOTAL] 100 200
         '''
+        assert not self.doc_words, 'Missing `close_doc()`?'
+
         w_count     = self.word_count
-        w_docn      = self.get_word_docn()
+        w_docn      = self.word_docn
         w_channels  = self.word_channels
         n_numbers   = 2 if w_channels is None else 3
         assert len(cols) == 1 + len(totals), (cols, totals)  # 1 is for TOTAL_LABEL
@@ -314,7 +296,6 @@ class WordCounterGroup(dict[str, WordCounter]):
     def add(
         self,
         words: Sequence[str],
-        doc_no: int,
         channel_id: Optional[Union[int, str]] = None
         ):
         for __, suffix, norm_fn in NORMALIZED_SUFFIX_FNS:
@@ -322,10 +303,13 @@ class WordCounterGroup(dict[str, WordCounter]):
             if c is not None:
                 c.add(
                     map(norm_fn, words) if (norm_fn is not None) else words,
-                    doc_no=doc_no,
                     channel_id=channel_id
                     )
         self.n_words += len(words)
+
+    def close_doc(self):
+        for c in self.values():
+            c.close_doc()
 
     def remove_less_than_min_docs(self, min_docs: int):
         for c in self.values():
@@ -342,10 +326,6 @@ class WordCounterGroup(dict[str, WordCounter]):
         ):
         for suffix, c in self.items():
             c.warnings_for_markup(top_n, markup, suffix)
-
-    def compact(self):
-        for c in self.values():
-            __ = c.get_word_docn()
 
     def merge(self, other: 'WordCounterGroup') -> 'WordCounterGroup':
         for suffix, c in self.items():

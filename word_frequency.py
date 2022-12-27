@@ -417,7 +417,9 @@ def process(
     normalize       = '%' in args.output
 
     counters = WordCounterGroup(normalize=normalize, channels=False)
-    counters_add = counters.add  # optimization
+    # Optimization:
+    c_add           = counters.add
+    c_close_doc     = counters.close_doc
 
     cmd_path = which('wikiextractor')
     assert cmd_path is not None, (
@@ -438,7 +440,7 @@ def process(
             f'{EXTRACTOR_VERSION}, and may not work as expected versions.\n\n'
             )
 
-    doc_no = 0
+    n_docs = 0
     iter_dumps = (
         tqdm(desc='Processing dump files', iterable=dumps) if show_progress
         else dumps
@@ -460,12 +462,13 @@ def process(
                 for line in p_out:
                     # Document boundaries:
                     if line.startswith('<'):
+                        # We assume docs are properly closed and opened:
                         if line.startswith('<doc '):
-                            # (in case <score> wasn't closed in previous doc):
-                            in_score = False
-                            doc_no += 1  # count only starts
                             continue
                         if line.startswith('</doc>'):
+                            in_score = False    # in case <score> wasn't closed properly
+                            c_close_doc()
+                            n_docs += 1
                             continue
                         # Continue processing if any tag other than "doc":
 
@@ -487,10 +490,9 @@ def process(
                         is_word,
                         tokenize(remove_markup(line))
                         ))
-                    counters_add(words, doc_no=doc_no)
+                    c_add(words)
 
-    counters.n_docs = doc_no
-    counters.compact()          # Compact before IPC
+    counters.n_docs = n_docs
 
     return counters
 
