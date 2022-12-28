@@ -14,7 +14,6 @@ JA_SUFFIXES="/-310"
 EN_OPTS="--default/--en/--en --relaxed"
 EN_SUFFIXES="/-penn/-pennr"
 
-
 DATE=$1
 if [ -z "$DATE" ]
 then
@@ -29,7 +28,7 @@ fi
 LANGS="$@"
 if [ -z "$LANGS" ]
 then
-	LANGS="de en es fr it ru zh pt ja cs"
+	LANGS="cs en fr de it ja pt ru es zh"
 fi
 
 for lang in ${=LANGS}
@@ -80,4 +79,83 @@ do
 		eval $cmd
     done
     
+done
+
+typeset -A LANGNAMES MUTNAMES SUFNAMES
+LANGNAMES=(
+	[cs]=Czech
+	[en]=English
+	[fr]=French
+	[de]=German
+	[it]=Italian
+	[ja]=Japanese
+	[pt]=Portuguese
+	[ru]=Russian
+	[es]=Spanish
+	[zh]=Chinese
+	)
+SUFNAMES=(
+	[]="regex"
+	[ja]="Unidic Lite"
+	[zh]="jieba, <b>experimental</b>"
+	[-310]="Unidic 3.1.0"
+	[-penn]="Penn"
+	[-pennr]="Penn, relaxed"
+)
+MUTATIONS="/-lower/-nfkc/-nfkc-lower"
+MUTNAMES=(
+	[]="no&nbsp;norm."
+	[-lower]="no&nbsp;norm., lowercased"
+	[-nfkc]="NFKC&nbsp;norm."
+	[-nfkc-lower]="NFKC&nbsp;norm., lowercased"
+	)
+	
+table_fmt='|:------------------- |'
+echo -n   '| Language / Mutation |'
+for mutation in "${(@s:/:)MUTATIONS}"
+do
+	mutname="$MUTNAMES[$mutation]"
+	dashes="$(echo $mutname | sed 's/./-/g')"
+	echo -n   " ${mutname} |"
+	table_fmt="${table_fmt} ${dashes}:|"
+done
+echo            " #tokens | #articles |"
+echo "$table_fmt  -------:| ---------:|"
+
+
+for lang in ${=LANGS}
+do
+	if [ $lang = "ja" ]
+    then
+    	suffixes="$JA_SUFFIXES"
+    elif [ $lang = "en" ]
+    then
+    	suffixes="$EN_SUFFIXES"
+    else
+    	suffixes=""
+    fi
+    langname="$LANGNAMES[$lang]"
+    	
+    for suffix in "${(@s:/:)suffixes}"
+    do
+    	if [ -z "$suffix" ] && [ $lang = "ja" -o $lang = "zh" ]
+    	then
+	    	sufname="$SUFNAMES[$lang]"
+	    else
+    		sufname="$SUFNAMES[$suffix]"
+    	fi
+    	echo -n "| ${langname}<sub>${sufname}</sub> |"
+    	for mutation in "${(@s:/:)MUTATIONS}"
+    	do
+		    mutname="$MUTNAMES[$mutation]"
+			file="results/${lang}wiki-frequency-${DATE}${suffix}${mutation}.tsv.xz"
+			totals=$(xzcat $file | awk 'END{ print NR-2, $2, $3 }')
+			types="${totals%% *}"
+			tokens_docs="${totals#* }"
+			tokens="${tokens_docs% *}"
+			docs="${tokens_docs#* }"
+			printf " [%'d]($file) |" "$types"
+		done
+		printf " %'d | %'d |\n" "$tokens" "$docs"
+    done
 done
