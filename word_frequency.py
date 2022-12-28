@@ -22,13 +22,14 @@ EXTRACTOR_VERSION = '3.0.6'  # Checked due to wikiextractor quirkiness
 # DO NOT keep content enclosed in <chem>.
 # DO keep content enclosed in <ins>, <del>, <poem>
 RE_MARKUP = re.compile(
-    r'<br( [^>]+)?>|'   # e.g. <br>, <br style="clear: both">
+    r'<br( [^>]+)?>|'               # e.g. <br>, <br style="clear: both">
     r'<chem>[^<]*</chem>|'          # e.g. <chem>NH3 </chem>
 
     # e.g. <ref name="..."></ref>, <ref group="..." name="..."></ref>,
     # <ref name="Kath26/07/2011"> , "I Kathimeriní", .</ref>,
     # <ref name="2015/07/29 powersearch">Article "..." de Michael Lipka, paru ...</ref>,
     # sometimes opening/closing tags are on separate lines
+    r'<ref\b[^>]*/ref>|'  # weird one line ref, e.g. <ref[oanda.com, March 9, 2022]/ref>
     r'<ref [^>]+>[^<]*</ref>|'          # one line
     r'<ref [^>]+>[^<]*$|^[^<]*</ref>|'  # two lines
 
@@ -49,17 +50,44 @@ RE_MARKUP = re.compile(
 
     # <ins>text</ins>, <del>text</del>,
     # randomly appearing <math>/</math> tags
-    # <onlyinclude>/</onlyinclude> in pages only linking to another page:
-    r'</?(ins|del|math|onlyinclude)>|'
+    # <onlyinclude>/</onlyinclude>/<onlyinclude/> in pages only linking to another page:
+    r'</?(ins|del|math|onlyinclude)>|<onlyinclude/>|'
 
     # e.g. <poem style="...">poem lines</poem> (or <q cite="夏目漱石『坊つちやん』">),
     # <section begin="Schaubild" /> or <section end="Schaubild" />
-    r'<(poem|q|section)( [^>]+)?>|</(poem|q)>'
+    r'<(poem|q|section)( [^>]+)?>|</(poem|q)>|'
+
+    # Sometimes there are blocks of the following (desambiuation/redirection, etc.)
+    r'<ns>.*?</ns>|'
+    r'<parentid>.*?</parentid>|'
+    r'<revision>|'
+    r'<timestamp>.*?</timestamp>|'
+    r'</?contributor>|'
+    r'<username>.*?</username>|'
+    r'<minor />|'
+    r'<comment>.*?</comment>|'
+    r'<model>.*?</model>|'
+    r'<format>.*?</format>'
+
+    # TODO: fix wikiextractor instead?
+    # - very long <mapframe> </mapframe> blocks
+    # - math formulas containing \mathbf etc.
+    # - ...
     )
 
 # Do not keep the content enclosed in <score> (musical scores spanning multiple lines).
 # (We do keep what's before and after.)
-RE_SCORE_OPEN   = re.compile(r'(.*)<score( [^>]+)?>')  # spans multiple lines
+RE_SCORE_OPEN   = re.compile(
+    # non-greedy (.*?) before opening:
+    r'(.*?)(<score( [^>]+)?>|(?P<maybe>'
+    # If <score> is missing match any of the following as a "maybe opening" of a score
+    r'\\override Score\.\b|'
+    r'\\new Staff\b|'
+    r'\\new PianoStaff\b|'
+    r'\\relative c\b|'
+    r'\\clef\b|'
+    r'\\unfoldRepeats\b))'
+    )
 RE_SCORE_CLOSE  = re.compile(r'</score>(.*)')
 
 # Within <ruby>:
@@ -132,26 +160,58 @@ def remove_markup(line: str) -> str:
 # The right single quote '’' (but not the left single quote) is allowed to occur
 # inside ‘...’ as long as it is surrounded by \w from both sides (\b’\b in the RE).
 # E.g. ‘It’s an apostrophe.’ => “It’s an apostrophe.”
-RE_SINGLE_QUOTE     = re.compile(r'‘(([^‘’]*\b’\b)*[^‘’]*)’')
-REPL_DOUBLE_QUOTE   = r'“\1”'
+#
+# The following RE and replaceement function replaces:
+# 1. legit single quotes by double quotes
+# 2. primes that look like apostrophe
 RSQUOTE2APOS: dict[int, int] = {ord('’'): ord('\'')}
 
-sub_single_quote    = RE_SINGLE_QUOTE.sub  # optimization
+RE_SMART_APOS     = re.compile(
+    # Preserve -- has group(1)
+    r'‘(([^‘’]*\b’\b)*[^‘’]*)’(?!s)|'   # paired single quotes, see `in_quotes` below
+    # Replace by apostrophe:
+    r'’|'                               # right single quote except pairs like above
+    r'(?<=[A-Za-z]{2})′|'               # prime following at least two alphabet letters
+    r'′(?=s)'                           # prime before 's'
+    )
+sub_smart_apos   = RE_SMART_APOS.sub  # optimization
 
 
-def smart_rsquote_to_apostrophe(s: str) -> str:
+def repl_smart_apos(m: re.Match) -> str:
     '''
-    Translates ‘...’ to “...”, and then ’ to '.
+    Translates "smart" apostrophe (right single quote ’ or prime ′) to apostrophe '.
+    Keeps legit "‘...’" or "a′" as is.
 
-    >>> smart_rsquote_to_apostrophe('It’s me. It’s ‘you and me’.')
-    "It's me. It's “you and me”."
+    Basic quotes/apostrophies:
 
-    >>> smart_rsquote_to_apostrophe(
+    >>> sub_smart_apos(repl_smart_apos, 'It’s me. It’s ‘you and me’.')
+    "It's me. It's ‘you and me’."
+
+    Trickier case (resolved using r'(?!s)'):
+
+    >>> sub_smart_apos(repl_smart_apos, '‘It’s A’ ‘and’ it’s B.')
+    "‘It's A’ ‘and’ it's B."
+
+    Imperfect matching:
+
+    >>> sub_smart_apos(repl_smart_apos,
     ...     'This isn‘t an apostrophe. ‘It’s an apostrophe.’ ‘This isn’t an apostrophe.'
-    ... )
-    "This isn‘t an apostrophe. “It's an apostrophe.” “This isn”t an apostrophe."
+    ...     )
+    "This isn‘t an apostrophe. ‘It's an apostrophe.’ ‘This isn’t an apostrophe."
+
+    Primes:
+
+    >>> sub_smart_apos(repl_smart_apos, 'It′s an a′, it can′t be b′. Countries′ names.')
+    "It's an a′, it can't be b′. Countries' names."
     '''
-    return sub_single_quote(REPL_DOUBLE_QUOTE, s).translate(RSQUOTE2APOS)
+
+    in_quotes = m.group(1)  # inside paired single quotes
+    return (
+        # Keep outer quotes, replace inner right single quotes using translate():
+        f'‘{in_quotes.translate(RSQUOTE2APOS)}’' if in_quotes is not None
+        # Replace other right single quotes or primes found by regex:
+        else '\''
+        )
 
 
 def parse() -> argparse.Namespace:
@@ -395,7 +455,9 @@ def process(
             from nltk.tokenize import word_tokenize  # type: ignore
             if args.smart_apostrophe:
                 def tokenize(s):
-                    return word_tokenize(smart_rsquote_to_apostrophe(s))
+                    return word_tokenize(
+                        sub_smart_apos(repl_smart_apos, s)
+                        )
             else:
                 tokenize = word_tokenize
         else:
@@ -403,12 +465,10 @@ def process(
             tokenize = get_re_split().split
 
     re_word = (
-        get_re_word(allow_start_end=WAVE_DASH) if (args.ja or args.zh) else  # TODO zh
-        (
-            get_re_word_relaxed() if args.relaxed else
-            get_re_word(allow_start_end='\'-', allow_end='.')
-            ) if args.en else
-        None    # filter out only empty strings
+        get_re_word(allow_start_end=WAVE_DASH) if args.ja else
+        get_re_word() if (args.ja or args.zh) else
+        get_re_word_relaxed() if args.en else
+        None    # only filter out empty strings
         )
 
     # is_word = None => filter filters out false (empty strings):
@@ -458,15 +518,41 @@ def process(
             assert p is not None, cmd
             assert p.stdout is not None, (cmd, p)
             with io.TextIOWrapper(p.stdout, encoding='utf-8') as p_out:
-                in_score = False    # inside <score>...</score> (ignored)
+                in_score    = False    # inside <score>...</score> (ignored)
+                maybe_score = None
+                doc_open    = None
                 for line in p_out:
                     # Document boundaries:
                     if line.startswith('<'):
                         # We assume docs are properly closed and opened:
                         if line.startswith('<doc '):
+                            doc_open = line
                             continue
                         if line.startswith('</doc>'):
-                            in_score = False    # in case <score> wasn't closed properly
+                            if in_score:
+                                if maybe_score is not None:
+                                    # maybe_score actually wasn't a score or both open
+                                    # and close tags were missing => process all
+                                    # supposed score lines:
+                                    sys.stderr.write(
+                                        f'Warning: Possible score without '
+                                        f'<score>...</score> tags in:\n{doc_open}\n'
+                                        f'Starts with:\n{maybe_score[0]}\n'
+                                        )
+                                    for line in maybe_score:
+                                        words = list(filter(
+                                            is_word,
+                                            tokenize(remove_markup(line))
+                                            ))
+                                        c_add(words)
+                                else:
+                                    sys.stderr.write(
+                                        f'Warning: Ignored lines upto the end of '
+                                        f'article.  Missing </score> tag in:\n'
+                                        f'{doc_open}\n'
+                                        )
+                                # also in case an actual <score> wasn't closed properly:
+                                in_score = False
                             c_close_doc()
                             n_docs += 1
                             continue
@@ -476,15 +562,29 @@ def process(
                     if in_score:
                         m = search_score_close(line)
                         if m is not None:
-                            in_score = False
+                            in_score    = False
+                            maybe_score = None
                             line = m.group(1)       # after </score>
                         else:
+                            if maybe_score is not None:
+                                # the lines will be processed if we don't find </score>
+                                maybe_score.append(line)
                             continue                # ignore
                     else:
                         m  = search_score_open(line)
                         if m is not None:
-                            in_score = True
-                            line = m.group(1)       # before <score>
+                            before = m.group(1)       # before <score>
+                            # Check if it isn't closed on the same line:
+                            mc = search_score_close(line)
+                            if mc is not None and mc.start() > m.start():
+                                # keep in_score = False
+                                line    = before + ' ' + m.group(1)  # + after </score>
+                            else:
+                                # Check if maybe instead of actual <score>
+                                if m.group('maybe') is not None:
+                                    maybe_score = [line]
+                                in_score    = True
+                                line        = before
 
                     words = list(filter(
                         is_word,

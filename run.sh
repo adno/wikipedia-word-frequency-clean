@@ -11,8 +11,8 @@
 JA_OPTS="--ja/--ja -D unidic"
 JA_SUFFIXES="/-310"
 
-EN_OPTS="--default/--en/--en --relaxed"
-EN_SUFFIXES="/-penn/-pennr"
+EN_OPTS="--default/--en"
+EN_SUFFIXES="/-penn"
 
 DATE=$1
 if [ -z "$DATE" ]
@@ -96,11 +96,10 @@ LANGNAMES=(
 	)
 SUFNAMES=(
 	[]="regex"
-	[ja]="Unidic Lite"
-	[zh]="jieba, <b>experimental</b>"
-	[-310]="Unidic 3.1.0"
+	[zh]="jieba,&nbsp;<b>experimental</b>"
+	[ja]="Unidic&nbsp;Lite"
+	[-310]="Unidic&nbsp;3.1.0"
 	[-penn]="Penn"
-	[-pennr]="Penn, relaxed"
 )
 MUTATIONS="/-lower/-nfkc/-nfkc-lower"
 MUTNAMES=(
