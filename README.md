@@ -18,8 +18,9 @@ This project provides word frequency lists generated from cleaned-up Wikipedia d
 | Spanish<sub>regex</sub> | [1,124,362](results/eswiki-frequency-20221020.tsv.xz) | [987,228](results/eswiki-frequency-20221020-lower.tsv.xz) | [1,124,249](results/eswiki-frequency-20221020-nfkc.tsv.xz) | [987,097](results/eswiki-frequency-20221020-nfkc-lower.tsv.xz) | 685,238,612 | 3,637,655 |
 | Chinese<sub>jieba, <b>experimental</b></sub> | [1,422,156](results/zhwiki-frequency-20221020.tsv.xz) | [1,404,023](results/zhwiki-frequency-20221020-lower.tsv.xz) | [1,422,029](results/zhwiki-frequency-20221020-nfkc.tsv.xz) | [1,403,918](results/zhwiki-frequency-20221020-nfkc-lower.tsv.xz) | 271,265,437 | 2,456,160 |
 
-Furthermore, the project provides a script for generating the lists that can be applied to other Wikipedia languages.
+The word lists for all the above languages are generated from dumps from 20 October 2022.
 
+Furthermore, the project provides a script for generating the lists that can be applied to other Wikipedia languages.
 
 ## About the wordlist files
 
@@ -54,10 +55,10 @@ Additionally, the script for generating the wordlists supports **multiprocessing
 For each language we provide several mutations.
 
 * **All languages** have the following mutations distinguished by the filename suffixes:
-    - `*.tsv.xz`: no normalization,
-    - `*-lower.tsv.xz`: no normalization, lowercased,
-    - `*-nfkc.tsv.xz`: NFKC normalization
-    - `*-nfkc-lower.tsv.xz`: NFKC normalization, lowercased
+    - `….tsv.xz`: no normalization,
+    - `…-lower.tsv.xz`: no normalization, lowercased,
+    - `…-nfkc.tsv.xz`: NFKC normalization
+    - `…-nfkc-lower.tsv.xz`: NFKC normalization, lowercased
 
   In addition to that, there are two variants of English and Japanese tokenization:
 
@@ -82,7 +83,7 @@ For each language we provide several mutations.
 
 2. Japanese and Chinese: Tokens that fulfil the following conditions:
     - do not contain digits (characters, such `一二三` are not considered digits),
-    - start and end with a word character (\w) or wave dash (〜).
+    - start and end with a word character (\w) or wave dash (`〜`).
 
 3. Other languages and English with the default regex tokenization:
     - tokens that consist of word characters (\w) except digits.
@@ -91,11 +92,19 @@ The default regex tokenization considers all non-word characters (\W, i.e. not \
 
 # Usage
 
-TBD
+1. Install requirements:
 
-# Results
+    `pip install -r requirements.txt`
+    
+2. Download and process dumps (default date and languages):
 
-TBD
+    `zsh run.sh`
+    
+    Alternatively download and process dumps from specific date and languages:
+   
+    `zsh run.sh 20221020 cs sk`
+
+For usage of the Python script for processing the dumps, see `python word_frequency.py --help`.
 
 # Further work and similar lists
 
