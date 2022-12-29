@@ -19,8 +19,10 @@ DEFAULT_MIN_DOCS = 3
 EXTRACTOR_VERSION = '3.0.6'  # Checked due to wikiextractor quirkiness
 
 # The following markup is replaced with a space character.
-# DO NOT keep content enclosed in <chem>.
-# DO keep content enclosed in <ins>, <del>, <poem>
+# In several cases we also use the RE to delete the content between the tags, e.g.
+# <chem>, <ref>.
+# We do keep the content enclosed in <ins>, <del>, <poem>.
+# A few more elements have a special handling outside RE_MARKUP (<score>, <ruby>).
 RE_MARKUP = re.compile(
     r'<br( [^>]+)?>|'               # e.g. <br>, <br style="clear: both">
     r'<chem>[^<]*</chem>|'          # e.g. <chem>NH3 </chem>
@@ -70,13 +72,29 @@ RE_MARKUP = re.compile(
     r'<format>.*?</format>'
 
     # TODO: fix wikiextractor instead?
-    # - very long <mapframe> </mapframe> blocks
-    # - math formulas containing \mathbf etc.
-    # - ...
+    # We are still not filtering these:
+    # - very long <mapframe>...</mapframe> blocks
+    # - untagged math formulas (containing \mathbf etc.)
+    # - untagged musical scores (see maybe_score, 'Warning: Possible score without ')
+    # - the following spurious tokens in English/Penn word list:
+    #   - height=
+    #   - name=
+    #   - zoom=
+    #   - longitude=
+    #   - type=
+    #   - text=
+    #   - |birth_date
+    #   - /includeonly
+    #   - /div
+    #   - /ref
+    #   - //www.youtube.com/watch
+    # ... all of which contribute to spurious tokens.
+    #
+    # See https://github.com/attardi/wikiextractor/issues/300
     )
 
 # Do not keep the content enclosed in <score> (musical scores spanning multiple lines).
-# (We do keep what's before and after.)
+# (We do keep what's before and after via a parenthesised RE group.)
 RE_SCORE_OPEN   = re.compile(
     # non-greedy (.*?) before opening:
     r'(.*?)(<score( [^>]+)?>|(?P<maybe>'
@@ -394,17 +412,6 @@ def main() -> None:
                 w_args,
                 chunksize=1     # we do the chunking ourselves in `w_dumps`
                 )
-#             counters = None
-#             for c in tqdm(
-#                     iterable=iter_counters,
-#                     desc='Merging results from workers',
-#                     total=workers
-#                     ):
-#                 if counters is None:
-#                     counters = c
-#                 else:
-#                     counters.merge(c)
-#                 del c
             counters = reduce(
                 lambda c, d: c.merge(d),
                 tqdm(
