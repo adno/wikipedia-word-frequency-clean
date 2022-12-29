@@ -37,7 +37,7 @@ We strive for data that is cleaner (not containing spurious “words” such as 
 
 1. **Cleanup:** We remove HTML/Wikitext tags such as (`<br>`, `<ref>`, etc.), table formatting (e.g. `colspan`, `rowspan`), some non-textual content (such as musical scores), placeholders for formulas and code (`formula_…`, `codice_…`) or ruby (furigana).
 
-2. **Tokenization:** We tokenize **Japanese** and **Chinese**, see [About mutations](#about-mutations). This is necessary because these languages do not separate words with spaces. (The [wikipedia-word-frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) script, simply extracts and counts any contiguous chunks of characters, which can range from a word to a whole sentence.)
+2. **Tokenization:** We tokenize **Japanese** and **Chinese**, see [About mutations](#about-mutations). This is necessary because these languages do not separate words with spaces. (The [wikipedia-word-frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) script simply extracts and counts any contiguous chunks of characters, which can range from a word to a whole sentence.)
 
     We tokenize **other languages** using a regular expression for orthographic words, consistently treating hyphen `-` and apostrophe `'` as punctuation that cannot occur inside a word. (The wikipedia-word-frequency script allows these characters except start or end of word, thus allowing `women's` but excluding `mens'`. It also blindly converts en-dashes to hyphens, e.g. tokenizing `New York–based` as `New` and `York-based`, and right single quotation marks to apostrophes, resulting into further discrepancies.)
 
