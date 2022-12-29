@@ -37,13 +37,13 @@ We strive for data that is cleaner (not containing spurious “words” such as 
 
 1. **Cleanup:** We remove HTML/Wikitext tags such as (`<br>`, `<ref>`, etc.), table formatting (e.g. `colspan`, `rowspan`), some non-textual content (such as musical scores), placeholders for formulas and code (`formula_…`, `codice_…`) or ruby (furigana).
 
-2. **Tokenization:** We tokenize **Japanese** and **Chinese**, see [About mutations](#about-mutations). This is necessary, because these languages do not separate words with spaces. (The [wikipedia-word-frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) script, simply extracts and counts any contiguous chunks of characters, which can range from a word to a whole sentence.)
+2. **Tokenization:** We tokenize **Japanese** and **Chinese**, see [About mutations](#about-mutations). This is necessary because these languages do not separate words with spaces. (The [wikipedia-word-frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) script, simply extracts and counts any contiguous chunks of characters, which can range from a word to a whole sentence.)
 
     We tokenize **other languages** using a regular expression for orthographic words, consistently treating hyphen `-` and apostrophe `'` as punctuation that cannot occur inside a word. (The wikipedia-word-frequency script allows these characters except start or end of word, thus allowing `women's` but excluding `mens'`. It also blindly converts en-dashes to hyphens, e.g. tokenizing `New York–based` as `New` and `York-based`, and right single quotation marks to apostrophes, resulting into further discrepancies.)
 
     For **English**, in addition to the default regex tokenization, we also provide the Penn Treebank tokenization (e.g. `can't` segmented as `ca` and `n't`). In this case, apostrophes are allowed, and we also do a smart conversion of right single quotation marks to apostrophes (to distinguish the intended apostrophe in `can’t` from the actual quotation mark in `‘tuna can’`).
 
-3. **Inclusion criteria:** We count [words](#what-is-considered-a-word) of any length, including one-character words (such as “I” or “a” in English or “茶” in Japanese or Chinese, which aren't counted by wikipedia-word-frequency).
+3. **Inclusion criteria:** We count [words](#what-is-considered-a-word) of any length, including one-character words (such as `I` or `a` in English or `茶` in Japanese or Chinese, which aren't counted by wikipedia-word-frequency).
 
 4. **Normalization:** For all languages, we provide [mutations](#about-mutations) that are lowercased and/or normalized to NFKC.
 
@@ -98,7 +98,7 @@ The default regex tokenization considers all non-word characters (\W, i.e. not \
 
     `zsh run.sh`
     
-    Alternatively download and process dumps from specific date and languages:
+    Alternatively, download and process dumps from specific date and languages:
    
     `zsh run.sh 20221020 cs sk`
 
@@ -108,9 +108,9 @@ For usage of the Python script for processing the dumps, see `python word_freque
 
 # Further work and similar lists
 
-The word lists contain only the surface forms of the words (segments). For many purposes, lemmas, POS and other information would be more useful. We plan to add further processing later.
+The word lists contain only the surface forms of the words (segments). For many purposes, lemmas, POS, and other information would be more useful. We plan to add further processing later.
 
-Support for Chinese is only experimental. Chinese is currently processed "as is" without any conversion, which means that it's a mix of traditional and simplified characters (and also of different varieties of Chinese used on the Chinese Wikipedia). We also do not filter vocabulary/script variants (e.g. `-{zh-cn:域;zh-tw:體}-` or `-{A|zh-hans:用户; zh-hant:使用者}-`), which has the side effect of increasing the occurrences of tokens such as `zh`, `hans`, etc. The word list may still be fine for some NLP applications.
+Support for Chinese is only experimental. Chinese is currently processed “as is” without any conversion, which means that it's a mix of traditional and simplified characters (and also of different varieties of Chinese used on the Chinese Wikipedia). We also do not filter vocabulary/script variants (e.g. `-{zh-cn:域;zh-tw:體}-` or `-{A|zh-hans:用户; zh-hant:使用者}-`), which has the side effect of increasing the occurrences of tokens such as `zh`, `hans`, etc. The word list may still be fine for some NLP applications.
 
 We are using [wikiextractor](https://github.com/attardi/wikiextractor) to extract plain text from Wikipedia dumps. Ideally, almost no cleanup would be necessary after using this tool, but there is actually a substantial amount of non-textual content such as maps, musical scores, tables, math formulas and random formatting that wikiextractor doesn't remove or removes in a haphazard fashion ( see the [issue on GitHub](https://github.com/attardi/wikiextractor/issues/300)). We try to remove both the legit placeholders and markup and also the most common markup that ought to be filtered by wikiextractor but isn't. The results are of course imperfect, but rather than extending the removal in this tool, it would be better to fix wikiextractor.
 
