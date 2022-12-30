@@ -43,9 +43,7 @@ We strive for data that is cleaner (not containing spurious “words” such as 
 
     For **English**, in addition to the default regex tokenization, we also provide the Penn Treebank tokenization (e.g. `can't` segmented as `ca` and `n't`). In this case, apostrophes are allowed, and we also do a smart conversion of right single quotation marks to apostrophes (to distinguish the intended apostrophe in `can’t` from the actual quotation mark in `‘tuna can’`).
 
-3. **Inclusion criteria:** We count [words](#what-is-considered-a-word) of any length, including one-character words (such as `I` or `a` in English or `茶` in Japanese or Chinese, which aren't counted by wikipedia-word-frequency).
-
-4. **Normalization:** For all languages, we provide [mutations](#about-mutations) that are lowercased and/or normalized to NFKC.
+3. **Normalization:** For all languages, we provide [mutations](#about-mutations) that are lowercased and/or normalized to NFKC.
 
 Additionally, the script for generating the wordlists supports **multiprocessing** (processing several dump files of the same language in parallel), greatly reducing the wall-clock time necessary to process the dumps.
 
