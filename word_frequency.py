@@ -90,6 +90,15 @@ RE_MARKUP = re.compile(
     #   - //www.youtube.com/watch
     # ... all of which contribute to spurious tokens.
     #
+    # Some other ideas for filtering:
+    # - all URLs like in tubelex?
+    # - math: \frac \mathbf \right \left \end \partial \sum_ \sqrt
+    # - (?) option=com_content
+    # - __NOEDITSECTION__, __notoc__
+    # - Czech: _, __, ___, ______, __bezobsahu__, __obsah__, cs_cz,
+    #   __staticképřesměrování__, jmeno_tabulky
+    # -
+    #
     # See https://github.com/attardi/wikiextractor/issues/300
     )
 
