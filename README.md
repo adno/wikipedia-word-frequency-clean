@@ -16,8 +16,9 @@ This project provides word frequency lists generated from cleaned-up Wikipedia d
 | Russian<sub>regex</sub> | [2,069,646](results/ruwiki-frequency-20221020.tsv.xz) | [1,854,875](results/ruwiki-frequency-20221020-lower.tsv.xz) | [2,069,575](results/ruwiki-frequency-20221020-nfkc.tsv.xz) | [1,854,793](results/ruwiki-frequency-20221020-nfkc-lower.tsv.xz) | 535,032,557 | 4,483,522 |
 | Spanish<sub>regex</sub> | [1,124,168](results/eswiki-frequency-20221020.tsv.xz) | [987,078](results/eswiki-frequency-20221020-lower.tsv.xz) | [1,124,055](results/eswiki-frequency-20221020-nfkc.tsv.xz) | [986,947](results/eswiki-frequency-20221020-nfkc-lower.tsv.xz) | 685,158,870 | 3,637,655 |
 | Chinese<sub>jieba,&nbsp;<b>experimental</b></sub> | [1,422,002](results/zhwiki-frequency-20221020.tsv.xz) | [1,403,896](results/zhwiki-frequency-20221020-lower.tsv.xz) | [1,421,875](results/zhwiki-frequency-20221020-nfkc.tsv.xz) | [1,403,791](results/zhwiki-frequency-20221020-nfkc-lower.tsv.xz) | 271,230,431 | 2,456,160 |
+| Indonesian<sub>regex</sub> | [433,387](results/idwiki-frequency-20240801.tsv.xz) | [373,475](results/idwiki-frequency-20240801-lower.tsv.xz) | [433,376](results/idwiki-frequency-20240801-nfkc.tsv.xz) | [373,461](results/idwiki-frequency-20240801-nfkc-lower.tsv.xz) | 117,956,650 | 1,314,543 |
 
-The word lists for all the above languages are generated from dumps from 20 October 2022.
+The word lists for all the above languages are generated from dumps dated 20 October 2022, with the exception of Indonesian, which is generated from a dump dated 1 August 2024.
 
 Furthermore, the project provides a script for generating the lists that can be applied to other Wikipedia languages.
 
@@ -111,5 +112,7 @@ The word lists contain only the surface forms of the words (segments). For many 
 Support for Chinese is only experimental. Chinese is currently processed “as is” without any conversion, which means that it's a mix of traditional and simplified characters (and also of different varieties of Chinese used on the Chinese Wikipedia). We also do not filter vocabulary/script variants (e.g. `-{zh-cn:域;zh-tw:體}-` or `-{A|zh-hans:用户; zh-hant:使用者}-`), which has the side effect of increasing the occurrences of tokens such as `zh`, `hans`, etc. The word list may still be fine for some NLP applications.
 
 We are using [wikiextractor](https://github.com/attardi/wikiextractor) to extract plain text from Wikipedia dumps. Ideally, almost no cleanup would be necessary after using this tool, but there is actually a substantial amount of non-textual content such as maps, musical scores, tables, math formulas and random formatting that wikiextractor doesn't remove or removes in a haphazard fashion (see the [issue on GitHub](https://github.com/attardi/wikiextractor/issues/300)). We try to remove both the legit placeholders and markup and also the most common markup that ought to be filtered by wikiextractor but isn't. The results are still imperfect, but rather than extending the removal in this tool, it would be better to fix wikiextractor. Another option would be to use the Wikipedia Cirrus search dumps instead (see [this issue and my comment](https://github.com/attardi/wikiextractor/issues/282)). Note that both approaches have been used to get pretraining data for large language models.
+
+In the current version we have added Indonesian from a later dump. We observed the string "https" among relatively high frequency words, which means that our cleanup is less effective for the current Wikipedia dumps.
 
 You may also like [TUBELEX-JA](https://github.com/adno/tubelex/), a large word list based on Japanese subtitles for YouTube videos, which is processed in a similar way.

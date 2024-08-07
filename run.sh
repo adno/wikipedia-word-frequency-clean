@@ -28,7 +28,7 @@ fi
 LANGS="$@"
 if [ -z "$LANGS" ]
 then
-	LANGS="cs en fr de it ja pt ru es zh"
+	LANGS="cs en fr de it ja pt ru es zh id"
 fi
 
 for lang in ${=LANGS}
@@ -93,6 +93,7 @@ LANGNAMES=(
 	[ru]=Russian
 	[es]=Spanish
 	[zh]=Chinese
+	[id]=Indonesian
 	)
 SUFNAMES=(
 	[]="regex"
