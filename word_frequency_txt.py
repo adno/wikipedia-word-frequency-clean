@@ -204,6 +204,19 @@ def parse() -> argparse.Namespace:
             '(not wikiextractor processes, default: no limit).'
             )
         )
+    parser.add_argument(
+        '--read-raw', action='store_true',
+        help=(
+            'Read raw text instead of using wikiextractor (no worker processes).'
+            )
+        )
+    parser.add_argument(
+        '--lang-8-tab-separated', action='store_true',
+        help=(
+            'Implies --read-raw. Takes first column of tab-separated text. '
+            'Ignores --min-docs.'
+            )
+        )
 
     lang_group = parser.add_mutually_exclusive_group(required=False)
     lang_group.add_argument(
@@ -375,7 +388,7 @@ def main() -> None:
                 )
 
     min_docs = args.min_docs
-    if min_docs:
+    if min_docs and not args.lang_8_tab_separated:
         counters.remove_less_than_min_docs(min_docs)
 
     counters.dump(
@@ -441,24 +454,28 @@ def process(
     c_add           = counters.add
     c_close_doc     = counters.close_doc
 
-    cmd_path = which('wikiextractor')
-    assert cmd_path is not None, (
-        f'Cannot find the wikiextractor command. '
-        f'Make sure to `pip install wikiextractor=={EXTRACTOR_VERSION}`.'
-        )
+    lang8       = args.lang_8_tab_separated
+    read_raw    = args.read_raw or lang8
 
-    # Check wikiextractor version due to its quirkiness (see "quirky" below)
-
-    cmd_v = subprocess.run(
-        (cmd_path, '--version'), stdout=subprocess.PIPE,
-        ).stdout.decode('utf-8').strip()
-    if cmd_v != f'wikiextractor {EXTRACTOR_VERSION}':
-        sys.stderr.write(
-            f'Warning: Command found at {cmd_path} is not wikiextractor '
-            f'{EXTRACTOR_VERSION} (instead {cmd_v}).\n'
-            f'         This script has been tested only with wikiextractor '
-            f'{EXTRACTOR_VERSION}, and may not work as expected versions.\n\n'
+    if not read_raw:
+        cmd_path = which('wikiextractor')
+        assert cmd_path is not None, (
+            f'Cannot find the wikiextractor command. '
+            f'Make sure to `pip install wikiextractor=={EXTRACTOR_VERSION}`.'
             )
+
+        # Check wikiextractor version due to its quirkiness (see "quirky" below)
+
+        cmd_v = subprocess.run(
+            (cmd_path, '--version'), stdout=subprocess.PIPE,
+            ).stdout.decode('utf-8').strip()
+        if cmd_v != f'wikiextractor {EXTRACTOR_VERSION}':
+            sys.stderr.write(
+                f'Warning: Command found at {cmd_path} is not wikiextractor '
+                f'{EXTRACTOR_VERSION} (instead {cmd_v}).\n'
+                f'         This script has been tested only with wikiextractor '
+                f'{EXTRACTOR_VERSION}, and may not work as expected versions.\n\n'
+                )
 
     n_docs = 0
     iter_dumps = (
@@ -466,6 +483,19 @@ def process(
         else dumps
         )
     for dump_name in iter_dumps:
+        if read_raw:
+            with open(dump_name) as f:
+                for line in f:
+                    if lang8:
+                        line = line.split('\t', 1)[0]
+                    words = list(filter(
+                        is_word,
+                        tokenize(remove_markup(line))
+                        ))
+                    c_add(words)
+                c_close_doc()
+                n_docs += 1
+            continue
         cmd = (
             cmd_path,
             '--processes', str(processes - 1),

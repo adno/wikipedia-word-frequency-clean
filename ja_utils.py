@@ -55,6 +55,9 @@ def get_re_word(
 
 
 def get_re_word_relaxed() -> re.Pattern:
+    '''
+    All non-digit ([^\\d]), at least one word-forming ([\\w]) character.
+    '''
     return re.compile(
         r'^([^\d]*(?!\d)[\w][^\d]*)$'
         )
@@ -135,3 +138,62 @@ def tagger_from_args(args: argparse.Namespace) -> fugashi.GenericTagger:
             import unidic_lite  # type: ignore
             dicdir = unidic_lite.DICDIR
     return fugashi_tagger(dicdir)
+
+
+# Normalizng English QUOTES/APOSTROPHES:
+
+# The right single quote '’' (but not the left single quote) is allowed to occur
+# inside ‘...’ as long as it is surrounded by \w from both sides (\b’\b in the RE).
+# E.g. ‘It’s an apostrophe.’ => “It’s an apostrophe.”
+#
+# The following RE and replaceement function replaces:
+# 1. legit single quotes by double quotes
+# 2. primes that look like apostrophe
+RSQUOTE2APOS: dict[int, int] = {ord('’'): ord('\'')}
+
+RE_SMART_APOS     = re.compile(
+    # Preserve -- has group(1)
+    r'‘(([^‘’]*\b’\b)*[^‘’]*)’(?!s)|'   # paired single quotes, see `in_quotes` below
+    # Replace by apostrophe:
+    r'’|'                               # right single quote except pairs like above
+    r'(?<=[A-Za-z]{2})′|'               # prime following at least two alphabet letters
+    r'′(?=s)'                           # prime before 's'
+    )
+sub_smart_apos   = RE_SMART_APOS.sub  # optimization
+
+
+def repl_smart_apos(m: re.Match) -> str:
+    '''
+    Translates "smart" apostrophe (right single quote ’ or prime ′) to apostrophe '.
+    Keeps legit "‘...’" or "a′" as is.
+
+    Basic quotes/apostrophies:
+
+    >>> sub_smart_apos(repl_smart_apos, 'It’s me. It’s ‘you and me’.')
+    "It's me. It's ‘you and me’."
+
+    Trickier case (resolved using r'(?!s)'):
+
+    >>> sub_smart_apos(repl_smart_apos, '‘It’s A’ ‘and’ it’s B.')
+    "‘It's A’ ‘and’ it's B."
+
+    Imperfect matching:
+
+    >>> sub_smart_apos(repl_smart_apos,
+    ...     'This isn‘t an apostrophe. ‘It’s an apostrophe.’ ‘This isn’t an apostrophe.'
+    ...     )
+    "This isn‘t an apostrophe. ‘It's an apostrophe.’ ‘This isn’t an apostrophe."
+
+    Primes:
+
+    >>> sub_smart_apos(repl_smart_apos, 'It′s an a′, it can′t be b′. Countries′ names.')
+    "It's an a′, it can't be b′. Countries' names."
+    '''
+
+    in_quotes = m.group(1)  # inside paired single quotes
+    return (
+        # Keep outer quotes, replace inner right single quotes using translate():
+        f'‘{in_quotes.translate(RSQUOTE2APOS)}’' if in_quotes is not None
+        # Replace other right single quotes or primes found by regex:
+        else '\''
+        )
